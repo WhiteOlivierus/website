@@ -37,6 +37,8 @@ const App = () => {
 
             const images = [];
             for await (const entry of imageHandlers) {
+              if (!data.images.includes(entry.name)) continue;
+
               images.push(entry);
             }
 
