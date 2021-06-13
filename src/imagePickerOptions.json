@@ -1,0 +1,13 @@
+{
+    "types": [
+        {
+            "description": "Jpeg",
+            "accept": {
+                "image/jpg": [
+                    ".jpg"
+                ]
+            }
+        }
+    ],
+    "startIn": "pictures"
+}

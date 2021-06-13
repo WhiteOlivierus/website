@@ -1,25 +1,108 @@
-import logo from './logo.svg';
-import './App.css';
+import { useEffect, useState } from "react";
+import imagePickerOptions from "./imagePickerOptions.json";
+import Engine from "Engine";
 
-function App() {
+const App = () => {
+  const [project, setProject] = useState();
+
+  const [projectData, setProjectData] = useState({
+    title: "This is your project",
+    images: []
+  });
+
+  const openProject = () => {
+    window.showDirectoryPicker()
+      .then(file => setProject(file));
+  };
+
+  const loadImages = () => {
+    window.showOpenFilePicker(imagePickerOptions)
+      .then(images => {
+        setProjectData({
+          ...projectData,
+          images: [
+            ...projectData.images,
+            ...images]
+        });
+      });
+  };
+
+  const saveProject = () => {
+    if (!project) {
+      alert("No project folder opened")
+      return;
+    }
+
+    project.getFileHandle('projectData.json', { create: true })
+      .then(newFile => writeFile(newFile, JSON.stringify({
+        ...projectData,
+        images: [...new Set(projectData.images.map(i => i.name))]
+      })));
+
+    project.getDirectoryHandle('img', { create: true })
+      .then((imageFolder) => {
+        projectData.images.forEach((image) => {
+          imageFolder.getFileHandle(image.name, { create: true })
+            .then(newFile => {
+              image.getFile()
+                .then(file => writeFile(newFile, file));
+            });
+        });
+      })
+  };
+
+  const buildProject = () => {
+    if (!project) {
+      alert("No project folder opened")
+      return;
+    }
+
+    project.getFileHandle('builder.exe', { create: true })
+      .then(newFile => writeURLToFile(newFile, `${window.location.hostname}/builder.exe`));
+  };
+
+  useEffect(() => {
+    Promise.all(projectData.images.map(i => i.getFile()
+      .then(f => URL.createObjectURL(f))))
+      .then(data => {
+        setPreProcessor({
+          ...projectData,
+          images: [...data]
+        });
+      });
+  }, [projectData]);
+
+  const [preProcessor, setPreProcessor] = useState();
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <div className="App" >
+      <button onClick={openProject}>Open project</button>
+      <button onClick={loadImages}>Load image</button>
+      <button onClick={saveProject}>Save project</button>
+      <button onClick={buildProject}>Build project</button>
+      <h1>{project ? `${project.name} opened` : "No project opened yet"}</h1>
+      {
+        projectData.images.length > 0 &&
+        projectData.images.map(({ name }) => {
+          return <h2 key={name}>{`${name} opened`}</h2>
+        })
+      }
+      <h1>Preview engine</h1>
+      {preProcessor && <Engine data={preProcessor} />}
+    </div >
   );
 }
 
 export default App;
+
+async function writeFile(fileHandle, contents) {
+  const writable = await fileHandle.createWritable();
+  await writable.write(contents);
+  await writable.close();
+}
+
+async function writeURLToFile(fileHandle, url) {
+  const writable = await fileHandle.createWritable();
+  const response = await fetch(url);
+  await response.body.pipeTo(writable);
+}
