@@ -12,10 +12,50 @@ const App = () => {
 
   const openProject = () => {
     window.showDirectoryPicker()
-      .then(file => setProject(file));
+      .then(directory => {
+        setProject(directory);
+        return directory.values();
+      })
+      .then(async fileHandles => {
+        let projectData = undefined;
+        let imageDirectory = undefined;
+        for await (const entry of fileHandles) {
+          if (entry.name === "projectData.json")
+            projectData = entry;
+          else if (entry.name === "img")
+            imageDirectory = entry;
+        }
+
+        if (!projectData)
+          return;
+
+        projectData.getFile()
+          .then(file => file.text())
+          .then(json => JSON.parse(json))
+          .then(async data => {
+            const imageHandlers = await imageDirectory.values();
+
+            const images = [];
+            for await (const entry of imageHandlers) {
+              images.push(entry);
+            }
+
+            const newData = {
+              ...data,
+              images: [...images]
+            }
+
+            setProjectData(newData);
+          });
+      });
   };
 
   const loadImages = () => {
+    if (!project) {
+      alert("No project folder opened")
+      return;
+    }
+
     window.showOpenFilePicker(imagePickerOptions)
       .then(images => {
         setProjectData({
